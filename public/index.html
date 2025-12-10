@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Controle de Estoque</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Menu Lateral -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Menu</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="sidebar-link active" data-section="estoque">
+                    <span class="icon">📦</span>
+                    <span>Estoque</span>
+                </a>
+                <a href="#" class="sidebar-link" data-section="acessos">
+                    <span class="icon">👥</span>
+                    <span>Acessos</span>
+                </a>
+                <a href="#" class="sidebar-link" data-section="niveis">
+                    <span class="icon">🔐</span>
+                    <span>Níveis de Acesso</span>
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Conteúdo Principal -->
+        <div class="main-content">
+            <header>
+                <div class="header-content">
+                    <h1 id="pageTitle">Sistema de Controle de Estoque</h1>
+                    <div class="user-info">
+                        <span id="nomeUsuario"></span>
+                        <button id="btnLogout" class="btn-logout">Sair</button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- SEÇÃO ESTOQUE -->
+            <div class="content-section active" id="estoque">
+                <nav class="tabs">
+                    <button class="tab-btn active" data-tab="produtos">Produtos</button>
+                    <button class="tab-btn" data-tab="movimentacoes">Movimentações</button>
+                </nav>
+
+        <!-- ABA PRODUTOS -->
+        <div class="tab-content active" id="produtos">
+            <section class="form-section">
+                <h2>Cadastrar/Editar Produto</h2>
+                <form id="formProduto">
+                    <input type="hidden" id="produtoId">
+                    <div class="form-group">
+                        <label for="nome">Nome:</label>
+                        <input type="text" id="nome" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="descricao">Descrição:</label>
+                        <textarea id="descricao" rows="3"></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="codigoBarras">Código de Barras:</label>
+                            <input type="text" id="codigoBarras">
+                        </div>
+                        <div class="form-group">
+                            <label for="dataValidade">Data de Validade:</label>
+                            <input type="date" id="dataValidade">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="preco">Preço (R$):</label>
+                            <input type="number" id="preco" step="0.01" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="quantidadeInicial">Quantidade Inicial:</label>
+                            <input type="number" id="quantidadeInicial" min="0" value="0">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="estoqueMinimo">Estoque Mínimo:</label>
+                        <input type="number" id="estoqueMinimo" min="0" value="0">
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Salvar Produto</button>
+                        <button type="button" class="btn btn-secondary" id="btnCancelar">Cancelar</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="list-section">
+                <h2>Lista de Produtos</h2>
+                <div class="table-container">
+                    <table id="tabelaProdutos">
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>Código de Barras</th>
+                                <th>Data de Validade</th>
+                                <th>Descrição</th>
+                                <th>Preço</th>
+                                <th>Estoque</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <!-- ABA MOVIMENTAÇÕES -->
+        <div class="tab-content" id="movimentacoes">
+            <section class="form-section">
+                <h2>Registrar Movimentação</h2>
+                <form id="formMovimentacao">
+                    <div class="form-group">
+                        <label for="produtoSelect">Produto:</label>
+                        <select id="produtoSelect" required>
+                            <option value="">Selecione um produto</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="tipoMovimentacao">Tipo:</label>
+                        <select id="tipoMovimentacao" required>
+                            <option value="entrada">Entrada</option>
+                            <option value="saida">Saída</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="quantidadeMovimentacao">Quantidade:</label>
+                        <input type="number" id="quantidadeMovimentacao" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="observacao">Observação:</label>
+                        <textarea id="observacao" rows="3"></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Registrar Movimentação</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="list-section">
+                <h2>Histórico de Movimentações</h2>
+                <div class="table-container">
+                    <table id="tabelaMovimentacoes">
+                        <thead>
+                            <tr>
+                                <th>Data/Hora</th>
+                                <th>Produto</th>
+                                <th>Tipo</th>
+                                <th>Quantidade</th>
+                                <th>Usuário</th>
+                                <th>Observação</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+            </div>
+
+            <!-- SEÇÃO ACESSOS -->
+            <div class="content-section" id="acessos">
+                <div class="page-content">
+                    <section class="form-section">
+                        <h2>Cadastrar/Editar Usuário</h2>
+                        <form id="formUsuario">
+                            <input type="hidden" id="usuarioId">
+                            <div class="form-group">
+                                <label for="nomeCompleto">Nome Completo:</label>
+                                <input type="text" id="nomeCompleto" required>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="loginUsuario">Usuário:</label>
+                                    <input type="text" id="loginUsuario" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="nivelUsuarioSelect">Nível de Acesso:</label>
+                                    <select id="nivelUsuarioSelect" required>
+                                        <option value="">Selecione um nível</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="senhaUsuario">Senha:</label>
+                                <input type="password" id="senhaUsuario" required>
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-primary">Salvar Usuário</button>
+                                <button type="button" class="btn btn-secondary" id="btnCancelarUsuario">Cancelar</button>
+                            </div>
+                        </form>
+                    </section>
+
+                    <section class="list-section">
+                        <h2>Lista de Usuários</h2>
+                        <div class="table-container">
+                            <table id="tabelaUsuarios">
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>Usuário</th>
+                                        <th>Nível de Acesso</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <!-- SEÇÃO NÍVEIS DE ACESSO -->
+            <div class="content-section" id="niveis">
+                <div class="page-content">
+                    <section class="form-section">
+                        <h2>Cadastrar/Editar Nível de Acesso</h2>
+                        <form id="formNivel">
+                            <input type="hidden" id="nivelAcessoId">
+                            <div class="form-group">
+                                <label for="nomeNivel">Nome do Nível:</label>
+                                <input type="text" id="nomeNivel" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="descricaoNivel">Descrição:</label>
+                                <textarea id="descricaoNivel" rows="2"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <h3 style="margin-bottom: 15px; color: #555;">Permissões:</h3>
+                                <div class="permissions-grid">
+                                    <label class="permission-label">
+                                        <input type="checkbox" id="perm_gerenciar_acessos">
+                                        <span>Gerenciar Acessos (criar/editar/deletar usuários)</span>
+                                    </label>
+                                    <label class="permission-label">
+                                        <input type="checkbox" id="perm_gerenciar_niveis">
+                                        <span>Gerenciar Níveis de Acesso</span>
+                                    </label>
+                                    <label class="permission-label">
+                                        <input type="checkbox" id="perm_cadastrar_produtos">
+                                        <span>Cadastrar Produtos</span>
+                                    </label>
+                                    <label class="permission-label">
+                                        <input type="checkbox" id="perm_editar_produtos">
+                                        <span>Editar Produtos</span>
+                                    </label>
+                                    <label class="permission-label">
+                                        <input type="checkbox" id="perm_deletar_produtos">
+                                        <span>Deletar Produtos</span>
+                                    </label>
+                                    <label class="permission-label">
+                                        <input type="checkbox" id="perm_registrar_movimentacoes">
+                                        <span>Registrar Movimentações</span>
+                                    </label>
+                                    <label class="permission-label">
+                                        <input type="checkbox" id="perm_visualizar_historico">
+                                        <span>Visualizar Histórico</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-primary">Salvar Nível</button>
+                                <button type="button" class="btn btn-secondary" id="btnCancelarNivel">Cancelar</button>
+                            </div>
+                        </form>
+                    </section>
+
+                    <section class="list-section">
+                        <h2>Lista de Níveis de Acesso</h2>
+                        <div class="table-container">
+                            <table id="tabelaNiveis">
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>Descrição</th>
+                                        <th>Permissões</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
