@@ -33,6 +33,7 @@
         <div class="main-content">
             <header>
                 <div class="header-content">
+                    <button id="menuToggle" class="menu-toggle">☰</button>
                     <h1 id="pageTitle">Sistema de Controle de Estoque</h1>
                     <div class="user-info">
                         <span id="nomeUsuario"></span>
@@ -148,6 +149,18 @@
 
             <section class="list-section">
                 <h2>Histórico de Movimentações</h2>
+                <div class="filtros-container">
+                    <div class="filtro-grupo">
+                        <label for="dataInicio">De:</label>
+                        <input type="date" id="dataInicio">
+                    </div>
+                    <div class="filtro-grupo">
+                        <label for="dataFim">Até:</label>
+                        <input type="date" id="dataFim">
+                    </div>
+                    <button type="button" class="btn btn-primary btn-filtrar" onclick="filtrarMovimentacoes()">Filtrar</button>
+                    <button type="button" class="btn btn-secondary btn-limpar" onclick="limparFiltros()">Limpar</button>
+                </div>
                 <div class="table-container">
                     <table id="tabelaMovimentacoes">
                         <thead>

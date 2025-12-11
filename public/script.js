@@ -55,6 +55,23 @@ document.getElementById('btnLogout').addEventListener('click', async () => {
     }
 });
 
+// Toggle menu mobile
+const menuToggle = document.getElementById('menuToggle');
+if (menuToggle) {
+    menuToggle.addEventListener('click', () => {
+        document.querySelector('.sidebar').classList.toggle('active');
+    });
+}
+
+// Fechar menu ao clicar em um link (mobile)
+document.querySelectorAll('.sidebar-link').forEach(link => {
+    link.addEventListener('click', () => {
+        if (window.innerWidth <= 768) {
+            document.querySelector('.sidebar').classList.remove('active');
+        }
+    });
+});
+
 // Gerenciamento de Abas
 document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -138,6 +155,7 @@ async function carregarProdutos() {
             const estoqueMinimo = produto.estoqueMinimo || 0;
             const estoqueClass = produto.quantidade <= estoqueMinimo ? 'estoque-baixo' : 'estoque-ok';
             const avisoEstoque = produto.quantidade <= estoqueMinimo ? ' ⚠️' : '';
+            const produtoId = produto._id || produto.id;
 
             // Formatar data de validade se existir
             let dataValidadeFormatada = '-';
@@ -154,8 +172,8 @@ async function carregarProdutos() {
                 <td>R$ ${produto.preco.toFixed(2)}</td>
                 <td class="${estoqueClass}">${produto.quantidade}${avisoEstoque}</td>
                 <td>
-                    <button class="btn btn-edit" onclick="editarProduto('${produto.id}')">Editar</button>
-                    <button class="btn btn-danger" onclick="deletarProduto('${produto.id}')">Deletar</button>
+                    <button class="btn btn-edit" onclick="editarProduto('${produtoId}')">Editar</button>
+                    <button class="btn btn-danger" onclick="deletarProduto('${produtoId}')">Deletar</button>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -204,7 +222,8 @@ document.getElementById('formProduto').addEventListener('submit', async (e) => {
             limparFormularioProduto();
             carregarProdutos();
         } else {
-            alert('Erro ao salvar produto!');
+            const erro = await response.json();
+            alert(erro.erro || 'Erro ao salvar produto!');
         }
     } catch (error) {
         console.error('Erro ao salvar produto:', error);
@@ -220,9 +239,9 @@ async function editarProduto(id) {
         });
         const produto = await response.json();
 
-        document.getElementById('produtoId').value = produto.id;
+        document.getElementById('produtoId').value = produto._id || produto.id;
         document.getElementById('nome').value = produto.nome;
-        document.getElementById('descricao').value = produto.descricao;
+        document.getElementById('descricao').value = produto.descricao || '';
         document.getElementById('codigoBarras').value = produto.codigoBarras || '';
         document.getElementById('dataValidade').value = produto.dataValidade || '';
         document.getElementById('preco').value = produto.preco;
@@ -253,7 +272,8 @@ async function deletarProduto(id) {
             alert('Produto deletado com sucesso!');
             carregarProdutos();
         } else {
-            alert('Erro ao deletar produto!');
+            const erro = await response.json();
+            alert(erro.erro || 'Erro ao deletar produto!');
         }
     } catch (error) {
         console.error('Erro ao deletar produto:', error);
@@ -285,7 +305,7 @@ async function carregarProdutosSelect() {
 
         produtos.forEach(produto => {
             const option = document.createElement('option');
-            option.value = produto.id;
+            option.value = produto._id || produto.id;
             option.textContent = `${produto.nome} (Estoque: ${produto.quantidade})`;
             select.appendChild(option);
         });
@@ -328,43 +348,81 @@ document.getElementById('formMovimentacao').addEventListener('submit', async (e)
     }
 });
 
+// Variável para armazenar todas as movimentações
+let todasMovimentacoes = [];
+
 // Carregar movimentações na tabela
 async function carregarMovimentacoes() {
     try {
         const response = await fetch(`${API_URL}/movimentacoes`, {
             credentials: 'include'
         });
-        const movimentacoes = await response.json();
+        todasMovimentacoes = await response.json();
 
-        const tbody = document.querySelector('#tabelaMovimentacoes tbody');
-        tbody.innerHTML = '';
-
-        if (movimentacoes.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Nenhuma movimentação registrada</td></tr>';
-            return;
-        }
-
-        movimentacoes.reverse().forEach(mov => {
-            const tr = document.createElement('tr');
-            const data = new Date(mov.data);
-            const dataFormatada = data.toLocaleString('pt-BR');
-            const tipoClass = mov.tipo === 'entrada' ? 'tipo-entrada' : 'tipo-saida';
-            const tipoTexto = mov.tipo === 'entrada' ? 'ENTRADA' : 'SAÍDA';
-
-            tr.innerHTML = `
-                <td>${dataFormatada}</td>
-                <td>${mov.produtoNome}</td>
-                <td class="${tipoClass}">${tipoTexto}</td>
-                <td>${mov.quantidade}</td>
-                <td>${mov.usuario || '-'}</td>
-                <td>${mov.observacao || '-'}</td>
-            `;
-            tbody.appendChild(tr);
-        });
+        exibirMovimentacoes(todasMovimentacoes);
     } catch (error) {
         console.error('Erro ao carregar movimentações:', error);
         alert('Erro ao carregar movimentações!');
     }
+}
+
+// Exibir movimentações filtradas
+function exibirMovimentacoes(movimentacoes) {
+    const tbody = document.querySelector('#tabelaMovimentacoes tbody');
+    tbody.innerHTML = '';
+
+    if (movimentacoes.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Nenhuma movimentação registrada</td></tr>';
+        return;
+    }
+
+    // Ordenar por data decrescente
+    const movimentacoesOrdenadas = [...movimentacoes].sort((a, b) => new Date(b.data) - new Date(a.data));
+
+    movimentacoesOrdenadas.forEach(mov => {
+        const tr = document.createElement('tr');
+        const data = new Date(mov.data);
+        const dataFormatada = data.toLocaleString('pt-BR');
+        const tipoClass = mov.tipo === 'entrada' ? 'tipo-entrada' : 'tipo-saida';
+        const tipoTexto = mov.tipo === 'entrada' ? 'ENTRADA' : 'SAÍDA';
+
+        tr.innerHTML = `
+            <td>${dataFormatada}</td>
+            <td>${mov.produtoNome}</td>
+            <td class="${tipoClass}">${tipoTexto}</td>
+            <td>${mov.quantidade}</td>
+            <td>${mov.usuario || '-'}</td>
+            <td>${mov.observacao || '-'}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+// Filtrar movimentações por período
+function filtrarMovimentacoes() {
+    const dataInicio = document.getElementById('dataInicio').value;
+    const dataFim = document.getElementById('dataFim').value;
+
+    let movimentacoesFiltradas = todasMovimentacoes;
+
+    if (dataInicio) {
+        const inicio = new Date(dataInicio + 'T00:00:00');
+        movimentacoesFiltradas = movimentacoesFiltradas.filter(mov => new Date(mov.data) >= inicio);
+    }
+
+    if (dataFim) {
+        const fim = new Date(dataFim + 'T23:59:59');
+        movimentacoesFiltradas = movimentacoesFiltradas.filter(mov => new Date(mov.data) <= fim);
+    }
+
+    exibirMovimentacoes(movimentacoesFiltradas);
+}
+
+// Limpar filtros
+function limparFiltros() {
+    document.getElementById('dataInicio').value = '';
+    document.getElementById('dataFim').value = '';
+    exibirMovimentacoes(todasMovimentacoes);
 }
 
 // NAVEGAÇÃO DO MENU LATERAL
@@ -413,7 +471,7 @@ async function carregarNiveisSelect() {
 
         niveis.forEach(nivel => {
             const option = document.createElement('option');
-            option.value = nivel.id;
+            option.value = nivel._id || nivel.id;
             option.textContent = nivel.nome;
             select.appendChild(option);
         });
@@ -444,14 +502,15 @@ async function carregarUsuarios() {
 
         usuarios.forEach(usuario => {
             const tr = document.createElement('tr');
+            const usuarioId = usuario._id || usuario.id;
 
             tr.innerHTML = `
                 <td>${usuario.nome}</td>
                 <td>${usuario.usuario}</td>
                 <td><span style="background: #667eea; color: white; padding: 4px 8px; border-radius: 3px; font-size: 0.85rem;">${usuario.nivelNome}</span></td>
                 <td>
-                    <button class="btn btn-edit" onclick="editarUsuario('${usuario.id}')">Editar</button>
-                    <button class="btn btn-danger" onclick="deletarUsuario('${usuario.id}')">Deletar</button>
+                    <button class="btn btn-edit" onclick="editarUsuario('${usuarioId}')">Editar</button>
+                    <button class="btn btn-danger" onclick="deletarUsuario('${usuarioId}')">Deletar</button>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -516,10 +575,10 @@ async function editarUsuario(id) {
             credentials: 'include'
         });
         const usuarios = await response.json();
-        const usuario = usuarios.find(u => u.id === id);
+        const usuario = usuarios.find(u => (u._id || u.id) === id);
 
         if (usuario) {
-            document.getElementById('usuarioId').value = usuario.id;
+            document.getElementById('usuarioId').value = usuario._id || usuario.id;
             document.getElementById('nomeCompleto').value = usuario.nome;
             document.getElementById('loginUsuario').value = usuario.usuario;
             document.getElementById('nivelUsuarioSelect').value = usuario.nivelId;
@@ -594,6 +653,7 @@ async function carregarNiveis() {
 
         niveis.forEach(nivel => {
             const tr = document.createElement('tr');
+            const nivelId = nivel._id || nivel.id;
 
             // Ordem das permissões
             const ordemPermissoes = [
@@ -617,7 +677,7 @@ async function carregarNiveis() {
             };
 
             const permissoesAtivas = ordemPermissoes
-                .filter(key => nivel.permissoes[key])
+                .filter(key => nivel.permissoes && nivel.permissoes[key])
                 .map(key => nomes[key]);
 
             const permissoesHTML = permissoesAtivas.length > 0
@@ -626,8 +686,8 @@ async function carregarNiveis() {
 
             const acoesBtns = nivel.sistema ?
                 '<span style="color: #999; font-size: 0.9rem;">Nível do Sistema</span>' :
-                `<button class="btn btn-edit" onclick="editarNivel('${nivel.id}')">Editar</button>
-                 <button class="btn btn-danger" onclick="deletarNivel('${nivel.id}')">Deletar</button>`;
+                `<button class="btn btn-edit" onclick="editarNivel('${nivelId}')">Editar</button>
+                 <button class="btn btn-danger" onclick="deletarNivel('${nivelId}')">Deletar</button>`;
 
             tr.innerHTML = `
                 <td><strong>${nivel.nome}</strong></td>
@@ -701,7 +761,7 @@ async function editarNivel(id) {
             credentials: 'include'
         });
         const niveis = await response.json();
-        const nivel = niveis.find(n => n.id === id);
+        const nivel = niveis.find(n => (n._id || n.id) === id);
 
         if (nivel) {
             if (nivel.sistema) {
@@ -709,16 +769,16 @@ async function editarNivel(id) {
                 return;
             }
 
-            document.getElementById('nivelAcessoId').value = nivel.id;
+            document.getElementById('nivelAcessoId').value = nivel._id || nivel.id;
             document.getElementById('nomeNivel').value = nivel.nome;
-            document.getElementById('descricaoNivel').value = nivel.descricao;
-            document.getElementById('perm_gerenciar_acessos').checked = nivel.permissoes.gerenciar_acessos;
-            document.getElementById('perm_gerenciar_niveis').checked = nivel.permissoes.gerenciar_niveis;
-            document.getElementById('perm_cadastrar_produtos').checked = nivel.permissoes.cadastrar_produtos;
-            document.getElementById('perm_editar_produtos').checked = nivel.permissoes.editar_produtos;
-            document.getElementById('perm_deletar_produtos').checked = nivel.permissoes.deletar_produtos;
-            document.getElementById('perm_registrar_movimentacoes').checked = nivel.permissoes.registrar_movimentacoes;
-            document.getElementById('perm_visualizar_historico').checked = nivel.permissoes.visualizar_historico;
+            document.getElementById('descricaoNivel').value = nivel.descricao || '';
+            document.getElementById('perm_gerenciar_acessos').checked = nivel.permissoes?.gerenciar_acessos || false;
+            document.getElementById('perm_gerenciar_niveis').checked = nivel.permissoes?.gerenciar_niveis || false;
+            document.getElementById('perm_cadastrar_produtos').checked = nivel.permissoes?.cadastrar_produtos || false;
+            document.getElementById('perm_editar_produtos').checked = nivel.permissoes?.editar_produtos || false;
+            document.getElementById('perm_deletar_produtos').checked = nivel.permissoes?.deletar_produtos || false;
+            document.getElementById('perm_registrar_movimentacoes').checked = nivel.permissoes?.registrar_movimentacoes || false;
+            document.getElementById('perm_visualizar_historico').checked = nivel.permissoes?.visualizar_historico || false;
 
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
