@@ -4,7 +4,8 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 
 // Seu link de conexão (já coloquei sua senha 'teste123' aqui)
-const linkConexao = 'mongodb+srv://admin:teste123@cluster0.zb29fhg.mongodb.net/?appName=Cluster0';
+//const linkConexao = 'mongodb+srv://admin:teste123@cluster0.zb29fhg.mongodb.net/?appName=Cluster0';
+const linkConexao = process.env.MONGO_URI; // Pega o valor da variável de ambiente
 
 // Tenta conectar
 mongoose.connect(linkConexao)
@@ -32,7 +33,8 @@ const app = express();
 const PORT = 3000;
 
 app.use(cors({
-    origin: 'http://localhost:3000',
+//    origin: 'http://localhost:3000',
+    origin: '*',
     credentials: true
 }));
 app.use(express.json());
