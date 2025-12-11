@@ -1,5 +1,28 @@
 const express = require('express');
 const cors = require('cors');
+// --- 1. CONFIGURAÇÃO DO BANCO DE DADOS (MONGOOSE) ---
+const mongoose = require('mongoose');
+
+// Seu link de conexão (já coloquei sua senha 'teste123' aqui)
+const linkConexao = 'mongodb+srv://admin:teste123@cluster0.zb29fhg.mongodb.net/?appName=Cluster0';
+
+// Tenta conectar
+mongoose.connect(linkConexao)
+  .then(() => console.log("✅ Conectado ao Banco MongoDB com sucesso!"))
+  .catch((erro) => console.error("❌ Erro ao conectar no banco:", erro));
+
+// --- 2. CRIANDO O MOLDE DO PRODUTO ---
+// Aqui a gente avisa pro banco que todo produto tem Nome, Qtd e Preço
+const Produto = mongoose.model('Produto', {
+    nome: String,
+    descricao: String,
+    codigoBarras: String,
+    dataValidade: String,
+    preco: Number,
+    quantidade: Number,
+    estoqueMinimo: Number,
+    dataCadastro: { type: Date, default: Date.now } // O banco preenche a data sozinho
+});
 const fs = require('fs');
 const path = require('path');
 const session = require('express-session');
@@ -434,9 +457,24 @@ app.delete('/api/usuarios/:id', requireAuth, requirePermission('gerenciar_acesso
 // ROTAS - PRODUTOS
 
 // Listar todos os produtos (requer autenticação)
-app.get('/api/produtos', requireAuth, (req, res) => {
+/*app.get('/api/produtos', requireAuth, (req, res) => {
     const produtos = lerProdutos();
     res.json(produtos);
+});
+*/
+
+// Listar todos os produtos (requer autenticação)
+// ADICIONADO: 'async' antes dos parenteses do (req, res)
+app.get('/api/produtos', requireAuth, async (req, res) => {
+    try {
+        // MUDANÇA: Em vez de lerProdutos(), pedimos ao Mongoose buscar tudo
+        const produtos = await Produto.find();
+        
+        res.json(produtos);
+    } catch (erro) {
+        // Se der erro no banco, o front recebe um aviso
+        res.status(500).json({ erro: "Erro ao buscar no banco de dados" });
+    }
 });
 
 // Buscar produto por ID (requer autenticação)
@@ -451,7 +489,7 @@ app.get('/api/produtos/:id', requireAuth, (req, res) => {
 });
 
 // Criar novo produto (requer autenticação)
-app.post('/api/produtos', requireAuth, (req, res) => {
+/*app.post('/api/produtos', requireAuth, (req, res) => {
     const produtos = lerProdutos();
     const novoProduto = {
         id: Date.now().toString(),
@@ -467,6 +505,34 @@ app.post('/api/produtos', requireAuth, (req, res) => {
     produtos.push(novoProduto);
     salvarProdutos(produtos);
     res.status(201).json(novoProduto);
+});
+*/
+
+// Criar novo produto (requer autenticação)
+app.post('/api/produtos', requireAuth, async (req, res) => {
+    try {
+        // Pegamos os dados que vieram do Frontend
+        const { nome, descricao, codigoBarras, dataValidade, preco, quantidade, estoqueMinimo } = req.body;
+
+        // CRIAR E SALVAR NO BANCO (Mongoose)
+        const novoProduto = await Produto.create({
+            nome,
+            descricao: descricao || '',       // Se não vier nada, salva vazio
+            codigoBarras: codigoBarras || '',
+            dataValidade: dataValidade || '',
+            preco: parseFloat(preco) || 0,
+            quantidade: parseInt(quantidade) || 0,
+            estoqueMinimo: parseInt(estoqueMinimo) || 0
+            // Não precisa passar 'id' nem 'dataCadastro', o MongoDB cria automático!
+        });
+
+        // Devolve o produto criado para o Frontend confirmar
+        res.status(201).json(novoProduto);
+
+    } catch (erro) {
+        console.error(erro); // Mostra o erro no seu terminal pra ajudar
+        res.status(500).json({ erro: "Erro ao cadastrar produto no banco" });
+    }
 });
 
 // Atualizar produto (requer autenticação)
