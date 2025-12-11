@@ -1,4 +1,5 @@
-const API_URL = 'http://localhost:3000/api';
+const API_URL = '/api';
+
 let permissoesUsuario = {};
 
 // Verificar autenticação ao carregar a página
