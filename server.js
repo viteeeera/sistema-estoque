@@ -30,7 +30,12 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 
 const app = express();
-const PORT = 3000;
+//const PORT = 3000;
+const PORT = process.env.PORT || 3000; // O Render nos dá a porta correta
+
+app.listen(PORT, () => {
+    console.log(`✅ Servidor rodando na porta ${PORT}`);
+});
 
 app.use(cors({
 //    origin: 'http://localhost:3000',
