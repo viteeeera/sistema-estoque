@@ -1,19 +1,23 @@
 const express = require('express');
 const cors = require('cors');
-// --- 1. CONFIGURAÇÃO DO BANCO DE DADOS (MONGOOSE) ---
 const mongoose = require('mongoose');
+const session = require('express-session');
+const MongoStore = require('connect-mongo');
+const bcrypt = require('bcryptjs');
 
-// Seu link de conexão (já coloquei sua senha 'teste123' aqui)
-//const linkConexao = 'mongodb+srv://admin:teste123@cluster0.zb29fhg.mongodb.net/?appName=Cluster0';
-const linkConexao = process.env.MONGO_URI; // Pega o valor da variável de ambiente
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-// Tenta conectar
+// --- CONEXÃO COM MONGODB ---
+const linkConexao = process.env.MONGO_URI;
+
 mongoose.connect(linkConexao)
-  .then(() => console.log("✅ Conectado ao Banco MongoDB com sucesso!"))
-  .catch((erro) => console.error("❌ Erro ao conectar no banco:", erro));
+    .then(() => console.log("✅ Conectado ao Banco MongoDB com sucesso!"))
+    .catch((erro) => console.error("❌ Erro ao conectar no banco:", erro));
 
-// --- 2. CRIANDO O MOLDE DO PRODUTO ---
-// Aqui a gente avisa pro banco que todo produto tem Nome, Qtd e Preço
+// --- MODELOS MONGOOSE ---
+
+// Modelo de Produto
 const Produto = mongoose.model('Produto', {
     nome: String,
     descricao: String,
@@ -22,163 +26,142 @@ const Produto = mongoose.model('Produto', {
     preco: Number,
     quantidade: Number,
     estoqueMinimo: Number,
-    dataCadastro: { type: Date, default: Date.now } // O banco preenche a data sozinho
-});
-const fs = require('fs');
-const path = require('path');
-const session = require('express-session');
-const bcrypt = require('bcryptjs');
-
-const app = express();
-//const PORT = 3000;
-const PORT = process.env.PORT || 3000; // O Render nos dá a porta correta
-
-app.listen(PORT, () => {
-    console.log(`✅ Servidor rodando na porta ${PORT}`);
+    dataCadastro: { type: Date, default: Date.now }
 });
 
+// Modelo de Nível de Acesso
+const Nivel = mongoose.model('Nivel', {
+    nome: String,
+    descricao: String,
+    permissoes: {
+        gerenciar_acessos: Boolean,
+        gerenciar_niveis: Boolean,
+        cadastrar_produtos: Boolean,
+        editar_produtos: Boolean,
+        deletar_produtos: Boolean,
+        registrar_movimentacoes: Boolean,
+        visualizar_historico: Boolean
+    },
+    sistema: { type: Boolean, default: false }
+});
+
+// Modelo de Usuário
+const Usuario = mongoose.model('Usuario', {
+    usuario: { type: String, unique: true },
+    senha: String,
+    nome: String,
+    nivelId: String
+});
+
+// Modelo de Movimentação
+const Movimentacao = mongoose.model('Movimentacao', {
+    produtoId: String,
+    produtoNome: String,
+    tipo: String,
+    quantidade: Number,
+    observacao: String,
+    usuario: String,
+    data: { type: Date, default: Date.now }
+});
+
+// --- MIDDLEWARES ---
 app.use(cors({
-//    origin: 'http://localhost:3000',
-    origin: '*',
+    origin: true,
     credentials: true
 }));
 app.use(express.json());
 
-// Configuração de sessão
+// Configuração de sessão com MongoDB Store
 app.use(session({
-    secret: 'estoque-secret-key-change-in-production',
+    secret: process.env.SESSION_SECRET || 'estoque-secret-key-change-in-production',
     resave: false,
     saveUninitialized: false,
+    store: MongoStore.create({
+        mongoUrl: linkConexao,
+        ttl: 24 * 60 * 60 // 1 dia
+    }),
     cookie: {
-        secure: false, // true em produção com HTTPS
+        secure: process.env.NODE_ENV === 'production',
         httpOnly: true,
-        maxAge: 24 * 60 * 60 * 1000 // 24 horas
-    }
+        maxAge: 24 * 60 * 60 * 1000,
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+    },
+    proxy: true
 }));
 
 app.use(express.static('public'));
 
-const DATA_DIR = path.join(__dirname, 'data');
-const PRODUTOS_FILE = path.join(DATA_DIR, 'produtos.json');
-const MOVIMENTACOES_FILE = path.join(DATA_DIR, 'movimentacoes.json');
-const USUARIOS_FILE = path.join(DATA_DIR, 'usuarios.json');
-const NIVEIS_FILE = path.join(DATA_DIR, 'niveis.json');
-
-// Criar diretório de dados se não existir
-if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR);
-}
-
-// Inicializar arquivos se não existirem
-if (!fs.existsSync(PRODUTOS_FILE)) {
-    fs.writeFileSync(PRODUTOS_FILE, JSON.stringify([]));
-}
-if (!fs.existsSync(MOVIMENTACOES_FILE)) {
-    fs.writeFileSync(MOVIMENTACOES_FILE, JSON.stringify([]));
-}
-
-// Inicializar níveis de acesso padrão
-function inicializarNiveis() {
-    if (!fs.existsSync(NIVEIS_FILE)) {
-        const niveisPadrao = [
-            {
-                id: '1',
-                nome: 'Administrador',
-                descricao: 'Acesso total ao sistema',
-                permissoes: {
-                    gerenciar_acessos: true,
-                    gerenciar_niveis: true,
-                    cadastrar_produtos: true,
-                    editar_produtos: true,
-                    deletar_produtos: true,
-                    registrar_movimentacoes: true,
-                    visualizar_historico: true
+// --- INICIALIZAÇÃO DE DADOS PADRÃO ---
+async function inicializarDados() {
+    try {
+        // Verificar se já existem níveis
+        const niveisExistentes = await Nivel.countDocuments();
+        if (niveisExistentes === 0) {
+            await Nivel.create([
+                {
+                    nome: 'Administrador',
+                    descricao: 'Acesso total ao sistema',
+                    permissoes: {
+                        gerenciar_acessos: true,
+                        gerenciar_niveis: true,
+                        cadastrar_produtos: true,
+                        editar_produtos: true,
+                        deletar_produtos: true,
+                        registrar_movimentacoes: true,
+                        visualizar_historico: true
+                    },
+                    sistema: true
                 },
-                sistema: true
-            },
-            {
-                id: '2',
-                nome: 'Usuário',
-                descricao: 'Acesso básico ao sistema',
-                permissoes: {
-                    gerenciar_acessos: false,
-                    gerenciar_niveis: false,
-                    cadastrar_produtos: true,
-                    editar_produtos: true,
-                    deletar_produtos: false,
-                    registrar_movimentacoes: true,
-                    visualizar_historico: true
-                },
-                sistema: true
-            }
-        ];
-        fs.writeFileSync(NIVEIS_FILE, JSON.stringify(niveisPadrao, null, 2));
-        console.log('Níveis de acesso padrão criados');
-    }
-}
-inicializarNiveis();
+                {
+                    nome: 'Usuário',
+                    descricao: 'Acesso básico ao sistema',
+                    permissoes: {
+                        gerenciar_acessos: false,
+                        gerenciar_niveis: false,
+                        cadastrar_produtos: true,
+                        editar_produtos: true,
+                        deletar_produtos: false,
+                        registrar_movimentacoes: true,
+                        visualizar_historico: true
+                    },
+                    sistema: true
+                }
+            ]);
+            console.log('✅ Níveis de acesso padrão criados');
+        }
 
-// Inicializar usuários com usuário admin padrão
-async function inicializarUsuarios() {
-    if (!fs.existsSync(USUARIOS_FILE)) {
-        const senhaHash = await bcrypt.hash('admin123', 10);
-        const usuariosPadrao = [
-            {
-                id: '1',
+        // Verificar se já existe usuário admin
+        const adminExistente = await Usuario.findOne({ usuario: 'admin' });
+        if (!adminExistente) {
+            const nivelAdmin = await Nivel.findOne({ nome: 'Administrador' });
+            const senhaHash = await bcrypt.hash('admin123', 10);
+            await Usuario.create({
                 usuario: 'admin',
                 senha: senhaHash,
                 nome: 'Administrador',
-                nivelId: '1' // ID do nível Administrador
-            }
-        ];
-        fs.writeFileSync(USUARIOS_FILE, JSON.stringify(usuariosPadrao, null, 2));
-        console.log('Usuário admin criado: admin / admin123');
+                nivelId: nivelAdmin._id.toString()
+            });
+            console.log('✅ Usuário admin criado: admin / admin123');
+        }
+    } catch (erro) {
+        console.error('❌ Erro ao inicializar dados:', erro);
     }
 }
-inicializarUsuarios();
 
-// Funções auxiliares
-function lerProdutos() {
-    return JSON.parse(fs.readFileSync(PRODUTOS_FILE, 'utf8'));
-}
+// Chamar inicialização após conexão
+mongoose.connection.once('open', inicializarDados);
 
-function salvarProdutos(produtos) {
-    fs.writeFileSync(PRODUTOS_FILE, JSON.stringify(produtos, null, 2));
-}
+// --- FUNÇÕES AUXILIARES ---
+async function obterPermissoes(userId) {
+    try {
+        const usuario = await Usuario.findById(userId);
+        if (!usuario) return null;
 
-function lerMovimentacoes() {
-    return JSON.parse(fs.readFileSync(MOVIMENTACOES_FILE, 'utf8'));
-}
-
-function salvarMovimentacoes(movimentacoes) {
-    fs.writeFileSync(MOVIMENTACOES_FILE, JSON.stringify(movimentacoes, null, 2));
-}
-
-function lerUsuarios() {
-    return JSON.parse(fs.readFileSync(USUARIOS_FILE, 'utf8'));
-}
-
-function salvarUsuarios(usuarios) {
-    fs.writeFileSync(USUARIOS_FILE, JSON.stringify(usuarios, null, 2));
-}
-
-function lerNiveis() {
-    return JSON.parse(fs.readFileSync(NIVEIS_FILE, 'utf8'));
-}
-
-function salvarNiveis(niveis) {
-    fs.writeFileSync(NIVEIS_FILE, JSON.stringify(niveis, null, 2));
-}
-
-// Função para obter permissões de um usuário
-function obterPermissoes(userId) {
-    const usuarios = lerUsuarios();
-    const usuario = usuarios.find(u => u.id === userId);
-    if (!usuario) return null;
-
-    const niveis = lerNiveis();
-    const nivel = niveis.find(n => n.id === usuario.nivelId);
-    return nivel ? nivel.permissoes : null;
+        const nivel = await Nivel.findById(usuario.nivelId);
+        return nivel ? nivel.permissoes : null;
+    } catch {
+        return null;
+    }
 }
 
 // Middleware de autenticação
@@ -191,8 +174,8 @@ function requireAuth(req, res, next) {
 
 // Middleware de autorização por permissão
 function requirePermission(permissao) {
-    return (req, res, next) => {
-        const permissoes = obterPermissoes(req.session.userId);
+    return async (req, res, next) => {
+        const permissoes = await obterPermissoes(req.session.userId);
         if (permissoes && permissoes[permissao]) {
             return next();
         }
@@ -200,44 +183,45 @@ function requirePermission(permissao) {
     };
 }
 
-// ROTAS - AUTENTICAÇÃO
+// --- ROTAS DE AUTENTICAÇÃO ---
 
 // Login
 app.post('/api/login', async (req, res) => {
-    const { usuario, senha } = req.body;
+    try {
+        const { usuario, senha } = req.body;
 
-    if (!usuario || !senha) {
-        return res.status(400).json({ erro: 'Usuário e senha são obrigatórios' });
+        if (!usuario || !senha) {
+            return res.status(400).json({ erro: 'Usuário e senha são obrigatórios' });
+        }
+
+        const user = await Usuario.findOne({ usuario });
+        if (!user) {
+            return res.status(401).json({ erro: 'Usuário ou senha inválidos' });
+        }
+
+        const senhaValida = await bcrypt.compare(senha, user.senha);
+        if (!senhaValida) {
+            return res.status(401).json({ erro: 'Usuário ou senha inválidos' });
+        }
+
+        const nivel = await Nivel.findById(user.nivelId);
+
+        req.session.userId = user._id.toString();
+        req.session.usuario = user.usuario;
+        req.session.nome = user.nome;
+        req.session.nivelId = user.nivelId;
+
+        res.json({
+            usuario: user.usuario,
+            nome: user.nome,
+            nivelId: user.nivelId,
+            nivelNome: nivel ? nivel.nome : 'Desconhecido',
+            permissoes: nivel ? nivel.permissoes : {}
+        });
+    } catch (erro) {
+        console.error('Erro no login:', erro);
+        res.status(500).json({ erro: 'Erro interno do servidor' });
     }
-
-    const usuarios = lerUsuarios();
-    const user = usuarios.find(u => u.usuario === usuario);
-
-    if (!user) {
-        return res.status(401).json({ erro: 'Usuário ou senha inválidos' });
-    }
-
-    const senhaValida = await bcrypt.compare(senha, user.senha);
-
-    if (!senhaValida) {
-        return res.status(401).json({ erro: 'Usuário ou senha inválidos' });
-    }
-
-    const niveis = lerNiveis();
-    const nivel = niveis.find(n => n.id === user.nivelId);
-
-    req.session.userId = user.id;
-    req.session.usuario = user.usuario;
-    req.session.nome = user.nome;
-    req.session.nivelId = user.nivelId;
-
-    res.json({
-        usuario: user.usuario,
-        nome: user.nome,
-        nivelId: user.nivelId,
-        nivelNome: nivel ? nivel.nome : 'Desconhecido',
-        permissoes: nivel ? nivel.permissoes : {}
-    });
 });
 
 // Logout
@@ -251,11 +235,10 @@ app.post('/api/logout', (req, res) => {
 });
 
 // Verificar sessão
-app.get('/api/sessao', (req, res) => {
+app.get('/api/sessao', async (req, res) => {
     if (req.session && req.session.userId) {
-        const permissoes = obterPermissoes(req.session.userId);
-        const niveis = lerNiveis();
-        const nivel = niveis.find(n => n.id === req.session.nivelId);
+        const permissoes = await obterPermissoes(req.session.userId);
+        const nivel = await Nivel.findById(req.session.nivelId);
 
         res.json({
             autenticado: true,
@@ -270,369 +253,342 @@ app.get('/api/sessao', (req, res) => {
     }
 });
 
-// ROTAS - NÍVEIS DE ACESSO
+// --- ROTAS DE NÍVEIS DE ACESSO ---
 
-// Listar todos os níveis (requer permissão)
-app.get('/api/niveis', requireAuth, requirePermission('gerenciar_niveis'), (req, res) => {
-    const niveis = lerNiveis();
-    res.json(niveis);
+// Listar todos os níveis
+app.get('/api/niveis', requireAuth, requirePermission('gerenciar_niveis'), async (req, res) => {
+    try {
+        const niveis = await Nivel.find();
+        res.json(niveis);
+    } catch (erro) {
+        res.status(500).json({ erro: 'Erro ao buscar níveis' });
+    }
 });
 
-// Criar novo nível (requer permissão)
-app.post('/api/niveis', requireAuth, requirePermission('gerenciar_niveis'), (req, res) => {
-    const niveis = lerNiveis();
-
-    const novoNivel = {
-        id: Date.now().toString(),
-        nome: req.body.nome,
-        descricao: req.body.descricao || '',
-        permissoes: req.body.permissoes || {
-            gerenciar_acessos: false,
-            gerenciar_niveis: false,
-            cadastrar_produtos: false,
-            editar_produtos: false,
-            deletar_produtos: false,
-            registrar_movimentacoes: false,
-            visualizar_historico: false
-        },
-        sistema: false
-    };
-
-    niveis.push(novoNivel);
-    salvarNiveis(niveis);
-    res.status(201).json(novoNivel);
+// Criar novo nível
+app.post('/api/niveis', requireAuth, requirePermission('gerenciar_niveis'), async (req, res) => {
+    try {
+        const novoNivel = await Nivel.create({
+            nome: req.body.nome,
+            descricao: req.body.descricao || '',
+            permissoes: req.body.permissoes || {
+                gerenciar_acessos: false,
+                gerenciar_niveis: false,
+                cadastrar_produtos: false,
+                editar_produtos: false,
+                deletar_produtos: false,
+                registrar_movimentacoes: false,
+                visualizar_historico: false
+            },
+            sistema: false
+        });
+        res.status(201).json(novoNivel);
+    } catch (erro) {
+        res.status(500).json({ erro: 'Erro ao criar nível' });
+    }
 });
 
-// Atualizar nível (requer permissão)
-app.put('/api/niveis/:id', requireAuth, requirePermission('gerenciar_niveis'), (req, res) => {
-    const niveis = lerNiveis();
-    const index = niveis.findIndex(n => n.id === req.params.id);
+// Atualizar nível
+app.put('/api/niveis/:id', requireAuth, requirePermission('gerenciar_niveis'), async (req, res) => {
+    try {
+        const nivel = await Nivel.findById(req.params.id);
+        if (!nivel) {
+            return res.status(404).json({ erro: 'Nível não encontrado' });
+        }
 
-    if (index === -1) {
-        return res.status(404).json({ erro: 'Nível não encontrado' });
+        if (nivel.sistema) {
+            return res.status(403).json({ erro: 'Não é possível editar níveis do sistema' });
+        }
+
+        nivel.nome = req.body.nome || nivel.nome;
+        nivel.descricao = req.body.descricao || nivel.descricao;
+        nivel.permissoes = req.body.permissoes || nivel.permissoes;
+
+        await nivel.save();
+        res.json(nivel);
+    } catch (erro) {
+        res.status(500).json({ erro: 'Erro ao atualizar nível' });
     }
-
-    if (niveis[index].sistema) {
-        return res.status(403).json({ erro: 'Não é possível editar níveis do sistema' });
-    }
-
-    niveis[index].nome = req.body.nome || niveis[index].nome;
-    niveis[index].descricao = req.body.descricao || niveis[index].descricao;
-    niveis[index].permissoes = req.body.permissoes || niveis[index].permissoes;
-
-    salvarNiveis(niveis);
-    res.json(niveis[index]);
 });
 
-// Deletar nível (requer permissão)
-app.delete('/api/niveis/:id', requireAuth, requirePermission('gerenciar_niveis'), (req, res) => {
-    const niveis = lerNiveis();
-    const index = niveis.findIndex(n => n.id === req.params.id);
+// Deletar nível
+app.delete('/api/niveis/:id', requireAuth, requirePermission('gerenciar_niveis'), async (req, res) => {
+    try {
+        const nivel = await Nivel.findById(req.params.id);
+        if (!nivel) {
+            return res.status(404).json({ erro: 'Nível não encontrado' });
+        }
 
-    if (index === -1) {
-        return res.status(404).json({ erro: 'Nível não encontrado' });
+        if (nivel.sistema) {
+            return res.status(403).json({ erro: 'Não é possível deletar níveis do sistema' });
+        }
+
+        const usuariosComNivel = await Usuario.countDocuments({ nivelId: req.params.id });
+        if (usuariosComNivel > 0) {
+            return res.status(400).json({ erro: 'Existem usuários vinculados a este nível' });
+        }
+
+        await Nivel.findByIdAndDelete(req.params.id);
+        res.json({ mensagem: 'Nível deletado com sucesso' });
+    } catch (erro) {
+        res.status(500).json({ erro: 'Erro ao deletar nível' });
     }
-
-    if (niveis[index].sistema) {
-        return res.status(403).json({ erro: 'Não é possível deletar níveis do sistema' });
-    }
-
-    const usuarios = lerUsuarios();
-    const usuariosComNivel = usuarios.filter(u => u.nivelId === req.params.id);
-    if (usuariosComNivel.length > 0) {
-        return res.status(400).json({ erro: 'Existem usuários vinculados a este nível' });
-    }
-
-    niveis.splice(index, 1);
-    salvarNiveis(niveis);
-    res.json({ mensagem: 'Nível deletado com sucesso' });
 });
 
-// ROTAS - USUÁRIOS
+// --- ROTAS DE USUÁRIOS ---
 
-// Listar todos os usuários (requer permissão)
-app.get('/api/usuarios', requireAuth, requirePermission('gerenciar_acessos'), (req, res) => {
-    const usuarios = lerUsuarios();
-    const niveis = lerNiveis();
+// Listar todos os usuários
+app.get('/api/usuarios', requireAuth, requirePermission('gerenciar_acessos'), async (req, res) => {
+    try {
+        const usuarios = await Usuario.find();
+        const niveis = await Nivel.find();
 
-    const usuariosSemSenha = usuarios.map(u => {
-        const nivel = niveis.find(n => n.id === u.nivelId);
-        return {
-            id: u.id,
-            usuario: u.usuario,
-            nome: u.nome,
-            nivelId: u.nivelId,
-            nivelNome: nivel ? nivel.nome : 'Desconhecido'
-        };
-    });
-    res.json(usuariosSemSenha);
+        const usuariosSemSenha = usuarios.map(u => {
+            const nivel = niveis.find(n => n._id.toString() === u.nivelId);
+            return {
+                id: u._id,
+                usuario: u.usuario,
+                nome: u.nome,
+                nivelId: u.nivelId,
+                nivelNome: nivel ? nivel.nome : 'Desconhecido'
+            };
+        });
+        res.json(usuariosSemSenha);
+    } catch (erro) {
+        res.status(500).json({ erro: 'Erro ao buscar usuários' });
+    }
 });
 
-// Criar novo usuário (requer permissão)
+// Criar novo usuário
 app.post('/api/usuarios', requireAuth, requirePermission('gerenciar_acessos'), async (req, res) => {
-    const usuarios = lerUsuarios();
-
-    const usuarioExiste = usuarios.find(u => u.usuario === req.body.usuario);
-    if (usuarioExiste) {
-        return res.status(400).json({ erro: 'Usuário já existe' });
-    }
-
-    const senhaHash = await bcrypt.hash(req.body.senha, 10);
-    const novoUsuario = {
-        id: Date.now().toString(),
-        usuario: req.body.usuario,
-        senha: senhaHash,
-        nome: req.body.nome,
-        nivelId: req.body.nivelId || '2'
-    };
-
-    usuarios.push(novoUsuario);
-    salvarUsuarios(usuarios);
-
-    const niveis = lerNiveis();
-    const nivel = niveis.find(n => n.id === novoUsuario.nivelId);
-
-    const usuarioSemSenha = {
-        id: novoUsuario.id,
-        usuario: novoUsuario.usuario,
-        nome: novoUsuario.nome,
-        nivelId: novoUsuario.nivelId,
-        nivelNome: nivel ? nivel.nome : 'Desconhecido'
-    };
-
-    res.status(201).json(usuarioSemSenha);
-});
-
-// Atualizar usuário (requer permissão)
-app.put('/api/usuarios/:id', requireAuth, requirePermission('gerenciar_acessos'), async (req, res) => {
-    const usuarios = lerUsuarios();
-    const index = usuarios.findIndex(u => u.id === req.params.id);
-
-    if (index === -1) {
-        return res.status(404).json({ erro: 'Usuário não encontrado' });
-    }
-
-    if (req.body.senha) {
-        usuarios[index].senha = await bcrypt.hash(req.body.senha, 10);
-    }
-
-    usuarios[index].nome = req.body.nome || usuarios[index].nome;
-    usuarios[index].nivelId = req.body.nivelId || usuarios[index].nivelId;
-
-    if (req.body.usuario && req.body.usuario !== usuarios[index].usuario) {
-        const usuarioExiste = usuarios.find(u => u.usuario === req.body.usuario && u.id !== req.params.id);
+    try {
+        const usuarioExiste = await Usuario.findOne({ usuario: req.body.usuario });
         if (usuarioExiste) {
             return res.status(400).json({ erro: 'Usuário já existe' });
         }
-        usuarios[index].usuario = req.body.usuario;
+
+        const senhaHash = await bcrypt.hash(req.body.senha, 10);
+        const novoUsuario = await Usuario.create({
+            usuario: req.body.usuario,
+            senha: senhaHash,
+            nome: req.body.nome,
+            nivelId: req.body.nivelId
+        });
+
+        const nivel = await Nivel.findById(novoUsuario.nivelId);
+
+        res.status(201).json({
+            id: novoUsuario._id,
+            usuario: novoUsuario.usuario,
+            nome: novoUsuario.nome,
+            nivelId: novoUsuario.nivelId,
+            nivelNome: nivel ? nivel.nome : 'Desconhecido'
+        });
+    } catch (erro) {
+        res.status(500).json({ erro: 'Erro ao criar usuário' });
     }
-
-    salvarUsuarios(usuarios);
-
-    const niveis = lerNiveis();
-    const nivel = niveis.find(n => n.id === usuarios[index].nivelId);
-
-    const usuarioSemSenha = {
-        id: usuarios[index].id,
-        usuario: usuarios[index].usuario,
-        nome: usuarios[index].nome,
-        nivelId: usuarios[index].nivelId,
-        nivelNome: nivel ? nivel.nome : 'Desconhecido'
-    };
-
-    res.json(usuarioSemSenha);
 });
 
-// Deletar usuário (requer permissão)
-app.delete('/api/usuarios/:id', requireAuth, requirePermission('gerenciar_acessos'), (req, res) => {
-    const usuarios = lerUsuarios();
-    const index = usuarios.findIndex(u => u.id === req.params.id);
+// Atualizar usuário
+app.put('/api/usuarios/:id', requireAuth, requirePermission('gerenciar_acessos'), async (req, res) => {
+    try {
+        const usuario = await Usuario.findById(req.params.id);
+        if (!usuario) {
+            return res.status(404).json({ erro: 'Usuário não encontrado' });
+        }
 
-    if (index === -1) {
-        return res.status(404).json({ erro: 'Usuário não encontrado' });
+        if (req.body.senha) {
+            usuario.senha = await bcrypt.hash(req.body.senha, 10);
+        }
+
+        usuario.nome = req.body.nome || usuario.nome;
+        usuario.nivelId = req.body.nivelId || usuario.nivelId;
+
+        if (req.body.usuario && req.body.usuario !== usuario.usuario) {
+            const usuarioExiste = await Usuario.findOne({ usuario: req.body.usuario });
+            if (usuarioExiste) {
+                return res.status(400).json({ erro: 'Usuário já existe' });
+            }
+            usuario.usuario = req.body.usuario;
+        }
+
+        await usuario.save();
+
+        const nivel = await Nivel.findById(usuario.nivelId);
+
+        res.json({
+            id: usuario._id,
+            usuario: usuario.usuario,
+            nome: usuario.nome,
+            nivelId: usuario.nivelId,
+            nivelNome: nivel ? nivel.nome : 'Desconhecido'
+        });
+    } catch (erro) {
+        res.status(500).json({ erro: 'Erro ao atualizar usuário' });
     }
-
-    if (usuarios[index].id === req.session.userId) {
-        return res.status(400).json({ erro: 'Você não pode deletar seu próprio usuário' });
-    }
-
-    usuarios.splice(index, 1);
-    salvarUsuarios(usuarios);
-    res.json({ mensagem: 'Usuário deletado com sucesso' });
 });
 
-// ROTAS - PRODUTOS
+// Deletar usuário
+app.delete('/api/usuarios/:id', requireAuth, requirePermission('gerenciar_acessos'), async (req, res) => {
+    try {
+        const usuario = await Usuario.findById(req.params.id);
+        if (!usuario) {
+            return res.status(404).json({ erro: 'Usuário não encontrado' });
+        }
 
-// Listar todos os produtos (requer autenticação)
-/*app.get('/api/produtos', requireAuth, (req, res) => {
-    const produtos = lerProdutos();
-    res.json(produtos);
+        if (usuario._id.toString() === req.session.userId) {
+            return res.status(400).json({ erro: 'Você não pode deletar seu próprio usuário' });
+        }
+
+        await Usuario.findByIdAndDelete(req.params.id);
+        res.json({ mensagem: 'Usuário deletado com sucesso' });
+    } catch (erro) {
+        res.status(500).json({ erro: 'Erro ao deletar usuário' });
+    }
 });
-*/
 
-// Listar todos os produtos (requer autenticação)
-// ADICIONADO: 'async' antes dos parenteses do (req, res)
+// --- ROTAS DE PRODUTOS ---
+
+// Listar todos os produtos
 app.get('/api/produtos', requireAuth, async (req, res) => {
     try {
-        // MUDANÇA: Em vez de lerProdutos(), pedimos ao Mongoose buscar tudo
         const produtos = await Produto.find();
-        
         res.json(produtos);
     } catch (erro) {
-        // Se der erro no banco, o front recebe um aviso
-        res.status(500).json({ erro: "Erro ao buscar no banco de dados" });
+        res.status(500).json({ erro: 'Erro ao buscar produtos' });
     }
 });
 
-// Buscar produto por ID (requer autenticação)
-app.get('/api/produtos/:id', requireAuth, (req, res) => {
-    const produtos = lerProdutos();
-    const produto = produtos.find(p => p.id === req.params.id);
-    if (produto) {
-        res.json(produto);
-    } else {
-        res.status(404).json({ erro: 'Produto não encontrado' });
+// Buscar produto por ID
+app.get('/api/produtos/:id', requireAuth, async (req, res) => {
+    try {
+        const produto = await Produto.findById(req.params.id);
+        if (produto) {
+            res.json(produto);
+        } else {
+            res.status(404).json({ erro: 'Produto não encontrado' });
+        }
+    } catch (erro) {
+        res.status(500).json({ erro: 'Erro ao buscar produto' });
     }
 });
 
-// Criar novo produto (requer autenticação)
-/*app.post('/api/produtos', requireAuth, (req, res) => {
-    const produtos = lerProdutos();
-    const novoProduto = {
-        id: Date.now().toString(),
-        nome: req.body.nome,
-        descricao: req.body.descricao || '',
-        codigoBarras: req.body.codigoBarras || '',
-        dataValidade: req.body.dataValidade || '',
-        preco: parseFloat(req.body.preco) || 0,
-        quantidade: parseInt(req.body.quantidade) || 0,
-        estoqueMinimo: parseInt(req.body.estoqueMinimo) || 0,
-        dataCadastro: new Date().toISOString()
-    };
-    produtos.push(novoProduto);
-    salvarProdutos(produtos);
-    res.status(201).json(novoProduto);
-});
-*/
-
-// Criar novo produto (requer autenticação)
+// Criar novo produto
 app.post('/api/produtos', requireAuth, async (req, res) => {
     try {
-        // Pegamos os dados que vieram do Frontend
         const { nome, descricao, codigoBarras, dataValidade, preco, quantidade, estoqueMinimo } = req.body;
 
-        // CRIAR E SALVAR NO BANCO (Mongoose)
         const novoProduto = await Produto.create({
             nome,
-            descricao: descricao || '',       // Se não vier nada, salva vazio
+            descricao: descricao || '',
             codigoBarras: codigoBarras || '',
             dataValidade: dataValidade || '',
             preco: parseFloat(preco) || 0,
             quantidade: parseInt(quantidade) || 0,
             estoqueMinimo: parseInt(estoqueMinimo) || 0
-            // Não precisa passar 'id' nem 'dataCadastro', o MongoDB cria automático!
         });
 
-        // Devolve o produto criado para o Frontend confirmar
         res.status(201).json(novoProduto);
-
     } catch (erro) {
-        console.error(erro); // Mostra o erro no seu terminal pra ajudar
-        res.status(500).json({ erro: "Erro ao cadastrar produto no banco" });
+        console.error(erro);
+        res.status(500).json({ erro: 'Erro ao cadastrar produto' });
     }
 });
 
-// Atualizar produto (requer autenticação)
-app.put('/api/produtos/:id', requireAuth, (req, res) => {
-    const produtos = lerProdutos();
-    const index = produtos.findIndex(p => p.id === req.params.id);
-    if (index !== -1) {
-        produtos[index] = {
-            ...produtos[index],
-            nome: req.body.nome || produtos[index].nome,
-            descricao: req.body.descricao !== undefined ? req.body.descricao : produtos[index].descricao,
-            codigoBarras: req.body.codigoBarras !== undefined ? req.body.codigoBarras : produtos[index].codigoBarras,
-            dataValidade: req.body.dataValidade !== undefined ? req.body.dataValidade : produtos[index].dataValidade,
-            preco: req.body.preco !== undefined ? parseFloat(req.body.preco) : produtos[index].preco,
-            estoqueMinimo: req.body.estoqueMinimo !== undefined ? parseInt(req.body.estoqueMinimo) : produtos[index].estoqueMinimo
-        };
-        salvarProdutos(produtos);
-        res.json(produtos[index]);
-    } else {
-        res.status(404).json({ erro: 'Produto não encontrado' });
+// Atualizar produto
+app.put('/api/produtos/:id', requireAuth, async (req, res) => {
+    try {
+        const produto = await Produto.findById(req.params.id);
+        if (!produto) {
+            return res.status(404).json({ erro: 'Produto não encontrado' });
+        }
+
+        produto.nome = req.body.nome || produto.nome;
+        produto.descricao = req.body.descricao !== undefined ? req.body.descricao : produto.descricao;
+        produto.codigoBarras = req.body.codigoBarras !== undefined ? req.body.codigoBarras : produto.codigoBarras;
+        produto.dataValidade = req.body.dataValidade !== undefined ? req.body.dataValidade : produto.dataValidade;
+        produto.preco = req.body.preco !== undefined ? parseFloat(req.body.preco) : produto.preco;
+        produto.estoqueMinimo = req.body.estoqueMinimo !== undefined ? parseInt(req.body.estoqueMinimo) : produto.estoqueMinimo;
+
+        await produto.save();
+        res.json(produto);
+    } catch (erro) {
+        res.status(500).json({ erro: 'Erro ao atualizar produto' });
     }
 });
 
-// Deletar produto (requer permissão)
-app.delete('/api/produtos/:id', requireAuth, requirePermission('deletar_produtos'), (req, res) => {
-    const produtos = lerProdutos();
-    const index = produtos.findIndex(p => p.id === req.params.id);
-    if (index !== -1) {
-        produtos.splice(index, 1);
-        salvarProdutos(produtos);
+// Deletar produto
+app.delete('/api/produtos/:id', requireAuth, requirePermission('deletar_produtos'), async (req, res) => {
+    try {
+        const produto = await Produto.findById(req.params.id);
+        if (!produto) {
+            return res.status(404).json({ erro: 'Produto não encontrado' });
+        }
+
+        await Produto.findByIdAndDelete(req.params.id);
         res.json({ mensagem: 'Produto deletado com sucesso' });
-    } else {
-        res.status(404).json({ erro: 'Produto não encontrado' });
+    } catch (erro) {
+        res.status(500).json({ erro: 'Erro ao deletar produto' });
     }
 });
 
-// ROTAS - MOVIMENTAÇÕES
+// --- ROTAS DE MOVIMENTAÇÕES ---
 
-// Listar todas as movimentações (requer autenticação)
-app.get('/api/movimentacoes', requireAuth, (req, res) => {
-    const movimentacoes = lerMovimentacoes();
-    res.json(movimentacoes);
+// Listar todas as movimentações
+app.get('/api/movimentacoes', requireAuth, async (req, res) => {
+    try {
+        const movimentacoes = await Movimentacao.find();
+        res.json(movimentacoes);
+    } catch (erro) {
+        res.status(500).json({ erro: 'Erro ao buscar movimentações' });
+    }
 });
 
-// Criar nova movimentação (entrada ou saída) (requer autenticação)
-app.post('/api/movimentacoes', requireAuth, (req, res) => {
-    const produtos = lerProdutos();
-    const movimentacoes = lerMovimentacoes();
+// Criar nova movimentação
+app.post('/api/movimentacoes', requireAuth, async (req, res) => {
+    try {
+        const produto = await Produto.findById(req.body.produtoId);
+        if (!produto) {
+            return res.status(404).json({ erro: 'Produto não encontrado' });
+        }
 
-    const produto = produtos.find(p => p.id === req.body.produtoId);
-    if (!produto) {
-        return res.status(404).json({ erro: 'Produto não encontrado' });
+        const quantidade = parseInt(req.body.quantidade);
+        const tipo = req.body.tipo;
+
+        if (tipo === 'saida' && produto.quantidade < quantidade) {
+            return res.status(400).json({ erro: 'Quantidade insuficiente em estoque' });
+        }
+
+        if (tipo === 'entrada') {
+            produto.quantidade += quantidade;
+        } else if (tipo === 'saida') {
+            produto.quantidade -= quantidade;
+        } else {
+            return res.status(400).json({ erro: 'Tipo inválido. Use "entrada" ou "saida"' });
+        }
+
+        const novaMovimentacao = await Movimentacao.create({
+            produtoId: req.body.produtoId,
+            produtoNome: produto.nome,
+            tipo: tipo,
+            quantidade: quantidade,
+            observacao: req.body.observacao || '',
+            usuario: req.session.nome
+        });
+
+        await produto.save();
+
+        res.status(201).json({
+            movimentacao: novaMovimentacao,
+            produtoAtualizado: produto
+        });
+    } catch (erro) {
+        console.error(erro);
+        res.status(500).json({ erro: 'Erro ao registrar movimentação' });
     }
-
-    const quantidade = parseInt(req.body.quantidade);
-    const tipo = req.body.tipo; // 'entrada' ou 'saida'
-
-    if (tipo === 'saida' && produto.quantidade < quantidade) {
-        return res.status(400).json({ erro: 'Quantidade insuficiente em estoque' });
-    }
-
-    // Atualizar quantidade do produto
-    if (tipo === 'entrada') {
-        produto.quantidade += quantidade;
-    } else if (tipo === 'saida') {
-        produto.quantidade -= quantidade;
-    } else {
-        return res.status(400).json({ erro: 'Tipo inválido. Use "entrada" ou "saida"' });
-    }
-
-    // Criar movimentação com registro do usuário
-    const novaMovimentacao = {
-        id: Date.now().toString(),
-        produtoId: req.body.produtoId,
-        produtoNome: produto.nome,
-        tipo: tipo,
-        quantidade: quantidade,
-        observacao: req.body.observacao || '',
-        usuario: req.session.nome,
-        data: new Date().toISOString()
-    };
-
-    movimentacoes.push(novaMovimentacao);
-
-    salvarProdutos(produtos);
-    salvarMovimentacoes(movimentacoes);
-
-    res.status(201).json({
-        movimentacao: novaMovimentacao,
-        produtoAtualizado: produto
-    });
 });
 
+// Iniciar servidor
 app.listen(PORT, () => {
-    console.log(`Servidor rodando em http://localhost:${PORT}`);
+    console.log(`✅ Servidor rodando na porta ${PORT}`);
 });
