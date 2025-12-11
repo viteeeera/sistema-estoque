@@ -344,8 +344,10 @@ app.get('/api/usuarios', requireAuth, requirePermission('gerenciar_acessos'), as
         const niveis = await Nivel.find();
 
         const usuariosSemSenha = usuarios.map(u => {
-            const nivel = niveis.find(n => n._id.toString() === u.nivelId);
+            // Comparar como string para garantir compatibilidade
+            const nivel = niveis.find(n => n._id.toString() === (u.nivelId || '').toString());
             return {
+                _id: u._id,
                 id: u._id,
                 usuario: u.usuario,
                 nome: u.nome,
@@ -378,6 +380,7 @@ app.post('/api/usuarios', requireAuth, requirePermission('gerenciar_acessos'), a
         const nivel = await Nivel.findById(novoUsuario.nivelId);
 
         res.status(201).json({
+            _id: novoUsuario._id,
             id: novoUsuario._id,
             usuario: novoUsuario.usuario,
             nome: novoUsuario.nome,
@@ -417,6 +420,7 @@ app.put('/api/usuarios/:id', requireAuth, requirePermission('gerenciar_acessos')
         const nivel = await Nivel.findById(usuario.nivelId);
 
         res.json({
+            _id: usuario._id,
             id: usuario._id,
             usuario: usuario.usuario,
             nome: usuario.nome,
