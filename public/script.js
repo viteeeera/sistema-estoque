@@ -55,21 +55,53 @@ document.getElementById('btnLogout').addEventListener('click', async () => {
     }
 });
 
-// Toggle menu mobile
+// Menu mobile
+const sidebar = document.getElementById('sidebar');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
 const menuToggle = document.getElementById('menuToggle');
+const menuClose = document.getElementById('menuClose');
+
+function abrirMenu() {
+    if (sidebar) sidebar.classList.add('active');
+    if (sidebarOverlay) sidebarOverlay.classList.add('active');
+    document.body.style.overflow = 'hidden'; // Previne scroll do body
+}
+
+function fecharMenu() {
+    if (sidebar) sidebar.classList.remove('active');
+    if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+    document.body.style.overflow = ''; // Restaura scroll
+}
+
+// Abrir menu ao clicar no botão hambúrguer
 if (menuToggle) {
-    menuToggle.addEventListener('click', () => {
-        document.querySelector('.sidebar').classList.toggle('active');
-    });
+    menuToggle.addEventListener('click', abrirMenu);
+}
+
+// Fechar menu ao clicar no X
+if (menuClose) {
+    menuClose.addEventListener('click', fecharMenu);
+}
+
+// Fechar menu ao clicar no overlay
+if (sidebarOverlay) {
+    sidebarOverlay.addEventListener('click', fecharMenu);
 }
 
 // Fechar menu ao clicar em um link (mobile)
 document.querySelectorAll('.sidebar-link').forEach(link => {
     link.addEventListener('click', () => {
         if (window.innerWidth <= 768) {
-            document.querySelector('.sidebar').classList.remove('active');
+            fecharMenu();
         }
     });
+});
+
+// Fechar menu ao redimensionar para desktop
+window.addEventListener('resize', () => {
+    if (window.innerWidth > 768) {
+        fecharMenu();
+    }
 });
 
 // Gerenciamento de Abas

@@ -8,10 +8,14 @@
 </head>
 <body>
     <div class="app-layout">
+        <!-- Overlay para fechar menu mobile -->
+        <div id="sidebarOverlay" class="sidebar-overlay"></div>
+
         <!-- Menu Lateral -->
-        <aside class="sidebar">
+        <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <h2>Menu</h2>
+                <button id="menuClose" class="menu-close">&times;</button>
             </div>
             <nav class="sidebar-nav">
                 <a href="#" class="sidebar-link active" data-section="estoque">
