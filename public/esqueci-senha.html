@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recuperar Senha - Sistema de Estoque</title>
+    <link rel="stylesheet" href="login.css">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-box">
+            <div class="login-header">
+                <h1>Recuperar Senha</h1>
+                <p>Digite seu e-mail para receber as instrucoes</p>
+            </div>
+
+            <form id="formEsqueciSenha">
+                <div class="form-group">
+                    <label for="email">E-mail</label>
+                    <input type="email" id="email" name="email" required autofocus placeholder="seu@email.com">
+                </div>
+
+                <div id="mensagemErro" class="mensagem-erro"></div>
+                <div id="mensagemSucesso" class="mensagem-sucesso"></div>
+
+                <button type="submit" class="btn-login">Enviar</button>
+            </form>
+
+            <div class="login-footer">
+                <a href="login.html" class="link-esqueci-senha">Voltar para o login</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = '/api';
+
+        document.getElementById('formEsqueciSenha').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById('email').value;
+            const mensagemErro = document.getElementById('mensagemErro');
+            const mensagemSucesso = document.getElementById('mensagemSucesso');
+            const btnSubmit = e.target.querySelector('button[type="submit"]');
+
+            mensagemErro.classList.remove('mostrar');
+            mensagemSucesso.classList.remove('mostrar');
+            btnSubmit.disabled = true;
+            btnSubmit.textContent = 'Enviando...';
+
+            try {
+                const response = await fetch(`${API_URL}/esqueci-senha`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    mensagemSucesso.textContent = data.mensagem;
+                    mensagemSucesso.classList.add('mostrar');
+                    document.getElementById('email').value = '';
+                } else {
+                    mensagemErro.textContent = data.erro || 'Erro ao processar solicitacao';
+                    mensagemErro.classList.add('mostrar');
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                mensagemErro.textContent = 'Erro ao conectar com o servidor';
+                mensagemErro.classList.add('mostrar');
+            } finally {
+                btnSubmit.disabled = false;
+                btnSubmit.textContent = 'Enviar';
+            }
+        });
+    </script>
+</body>
+</html>

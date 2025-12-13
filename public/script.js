@@ -528,20 +528,29 @@ async function carregarUsuarios() {
         tbody.innerHTML = '';
 
         if (usuarios.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">Nenhum usuário cadastrado</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Nenhum usuário cadastrado</td></tr>';
             return;
         }
 
         usuarios.forEach(usuario => {
             const tr = document.createElement('tr');
             const usuarioId = usuario._id || usuario.id;
+            const statusHTML = usuario.bloqueado
+                ? '<span style="background: #dc3545; color: white; padding: 4px 8px; border-radius: 3px; font-size: 0.8rem;">Bloqueado</span>'
+                : '<span style="background: #28a745; color: white; padding: 4px 8px; border-radius: 3px; font-size: 0.8rem;">Ativo</span>';
+            const btnDesbloquear = usuario.bloqueado
+                ? `<button class="btn btn-edit" onclick="desbloquearUsuario('${usuarioId}')" style="background: #17a2b8;">Desbloquear</button>`
+                : '';
 
             tr.innerHTML = `
                 <td>${usuario.nome}</td>
                 <td>${usuario.usuario}</td>
-                <td><span style="background: #667eea; color: white; padding: 4px 8px; border-radius: 3px; font-size: 0.85rem;">${usuario.nivelNome}</span></td>
+                <td>${usuario.email || '-'}</td>
+                <td><span style="background: #667eea; color: white; padding: 4px 8px; border-radius: 3px; font-size: 0.8rem;">${usuario.nivelNome}</span></td>
+                <td>${statusHTML}</td>
                 <td>
                     <button class="btn btn-edit" onclick="editarUsuario('${usuarioId}')">Editar</button>
+                    ${btnDesbloquear}
                     <button class="btn btn-danger" onclick="deletarUsuario('${usuarioId}')">Deletar</button>
                 </td>
             `;
@@ -560,6 +569,7 @@ document.getElementById('formUsuario').addEventListener('submit', async (e) => {
     const id = document.getElementById('usuarioId').value;
     const usuario = {
         nome: document.getElementById('nomeCompleto').value,
+        email: document.getElementById('emailUsuario').value,
         usuario: document.getElementById('loginUsuario').value,
         nivelId: document.getElementById('nivelUsuarioSelect').value,
         senha: document.getElementById('senhaUsuario').value
@@ -612,6 +622,7 @@ async function editarUsuario(id) {
         if (usuario) {
             document.getElementById('usuarioId').value = usuario._id || usuario.id;
             document.getElementById('nomeCompleto').value = usuario.nome;
+            document.getElementById('emailUsuario').value = usuario.email || '';
             document.getElementById('loginUsuario').value = usuario.usuario;
             document.getElementById('nivelUsuarioSelect').value = usuario.nivelId;
             document.getElementById('senhaUsuario').value = '';
@@ -623,6 +634,31 @@ async function editarUsuario(id) {
     } catch (error) {
         console.error('Erro ao carregar usuário:', error);
         alert('Erro ao carregar usuário!');
+    }
+}
+
+// Desbloquear usuário
+async function desbloquearUsuario(id) {
+    if (!confirm('Desbloquear este usuário?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/usuarios/${id}/desbloquear`, {
+            method: 'POST',
+            credentials: 'include'
+        });
+
+        if (response.ok) {
+            alert('Usuário desbloqueado com sucesso!');
+            carregarUsuarios();
+        } else {
+            const erro = await response.json();
+            alert(erro.erro || 'Erro ao desbloquear usuário!');
+        }
+    } catch (error) {
+        console.error('Erro ao desbloquear usuário:', error);
+        alert('Erro ao desbloquear usuário!');
     }
 }
 
@@ -657,7 +693,8 @@ document.getElementById('btnCancelarUsuario').addEventListener('click', limparFo
 function limparFormularioUsuario() {
     document.getElementById('formUsuario').reset();
     document.getElementById('usuarioId').value = '';
-    document.getElementById('senhaUsuario').placeholder = 'Digite a senha';
+    document.getElementById('emailUsuario').value = '';
+    document.getElementById('senhaUsuario').placeholder = 'Mínimo 6 caracteres';
     document.getElementById('senhaUsuario').required = true;
 }
 

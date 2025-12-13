@@ -15,7 +15,11 @@
     "connect-mongo": "^5.1.0",
     "cors": "^2.8.5",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.2.1",
     "express-session": "^1.18.2",
-    "mongoose": "^9.0.1"
+    "express-validator": "^7.3.1",
+    "helmet": "^8.1.0",
+    "mongoose": "^9.0.1",
+    "resend": "^6.6.0"
   }
 }

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redefinir Senha - Sistema de Estoque</title>
+    <link rel="stylesheet" href="login.css">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-box">
+            <div class="login-header">
+                <h1>Redefinir Senha</h1>
+                <p>Digite sua nova senha</p>
+            </div>
+
+            <form id="formRedefinirSenha">
+                <div class="form-group">
+                    <label for="novaSenha">Nova Senha</label>
+                    <input type="password" id="novaSenha" name="novaSenha" required minlength="6" placeholder="Minimo 6 caracteres">
+                </div>
+
+                <div class="form-group">
+                    <label for="confirmarSenha">Confirmar Senha</label>
+                    <input type="password" id="confirmarSenha" name="confirmarSenha" required minlength="6">
+                </div>
+
+                <div id="mensagemErro" class="mensagem-erro"></div>
+                <div id="mensagemSucesso" class="mensagem-sucesso"></div>
+
+                <button type="submit" class="btn-login">Redefinir Senha</button>
+            </form>
+
+            <div class="login-footer">
+                <a href="login.html" class="link-esqueci-senha">Voltar para o login</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = '/api';
+
+        // Pegar token da URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+
+        if (!token) {
+            document.getElementById('mensagemErro').textContent = 'Link invalido ou expirado';
+            document.getElementById('mensagemErro').classList.add('mostrar');
+            document.getElementById('formRedefinirSenha').style.display = 'none';
+        }
+
+        document.getElementById('formRedefinirSenha').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const novaSenha = document.getElementById('novaSenha').value;
+            const confirmarSenha = document.getElementById('confirmarSenha').value;
+            const mensagemErro = document.getElementById('mensagemErro');
+            const mensagemSucesso = document.getElementById('mensagemSucesso');
+            const btnSubmit = e.target.querySelector('button[type="submit"]');
+
+            mensagemErro.classList.remove('mostrar');
+            mensagemSucesso.classList.remove('mostrar');
+
+            // Validar senhas
+            if (novaSenha !== confirmarSenha) {
+                mensagemErro.textContent = 'As senhas nao coincidem';
+                mensagemErro.classList.add('mostrar');
+                return;
+            }
+
+            if (novaSenha.length < 6) {
+                mensagemErro.textContent = 'A senha deve ter no minimo 6 caracteres';
+                mensagemErro.classList.add('mostrar');
+                return;
+            }
+
+            btnSubmit.disabled = true;
+            btnSubmit.textContent = 'Redefinindo...';
+
+            try {
+                const response = await fetch(`${API_URL}/redefinir-senha`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ token, novaSenha })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    mensagemSucesso.textContent = data.mensagem + ' Redirecionando...';
+                    mensagemSucesso.classList.add('mostrar');
+                    document.getElementById('formRedefinirSenha').style.display = 'none';
+
+                    setTimeout(() => {
+                        window.location.href = '/login.html';
+                    }, 2000);
+                } else {
+                    mensagemErro.textContent = data.erro || 'Erro ao redefinir senha';
+                    mensagemErro.classList.add('mostrar');
+                    btnSubmit.disabled = false;
+                    btnSubmit.textContent = 'Redefinir Senha';
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                mensagemErro.textContent = 'Erro ao conectar com o servidor';
+                mensagemErro.classList.add('mostrar');
+                btnSubmit.disabled = false;
+                btnSubmit.textContent = 'Redefinir Senha';
+            }
+        });
+    </script>
+</body>
+</html>

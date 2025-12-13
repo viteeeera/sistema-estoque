@@ -101,10 +101,42 @@ input:focus {
     animation: shake 0.5s;
 }
 
+.mensagem-sucesso {
+    background: #d4edda;
+    color: #155724;
+    padding: 12px;
+    border-radius: 5px;
+    margin-bottom: 15px;
+    display: none;
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+.mensagem-sucesso.mostrar {
+    display: block;
+}
+
 @keyframes shake {
     0%, 100% { transform: translateX(0); }
     25% { transform: translateX(-10px); }
     75% { transform: translateX(10px); }
+}
+
+.login-footer {
+    padding: 0 30px 30px;
+    text-align: center;
+}
+
+.link-esqueci-senha {
+    color: #667eea;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color 0.3s;
+}
+
+.link-esqueci-senha:hover {
+    color: #764ba2;
+    text-decoration: underline;
 }
 
 .btn-login {
