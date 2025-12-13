@@ -623,6 +623,7 @@ async function editarUsuario(id) {
             document.getElementById('usuarioId').value = usuario._id || usuario.id;
             document.getElementById('nomeCompleto').value = usuario.nome;
             document.getElementById('emailUsuario').value = usuario.email || '';
+            document.getElementById('emailUsuario').required = false; // Email opcional na edição
             document.getElementById('loginUsuario').value = usuario.usuario;
             document.getElementById('nivelUsuarioSelect').value = usuario.nivelId;
             document.getElementById('senhaUsuario').value = '';
@@ -694,6 +695,7 @@ function limparFormularioUsuario() {
     document.getElementById('formUsuario').reset();
     document.getElementById('usuarioId').value = '';
     document.getElementById('emailUsuario').value = '';
+    document.getElementById('emailUsuario').required = true; // Email obrigatório para novos usuários
     document.getElementById('senhaUsuario').placeholder = 'Mínimo 6 caracteres';
     document.getElementById('senhaUsuario').required = true;
 }
