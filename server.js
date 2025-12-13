@@ -92,23 +92,22 @@ app.use(helmet({
     crossOriginEmbedderPolicy: false
 }));
 
-// CORS restrito
-const allowedOrigins = [
-    'http://localhost:3000',
-    'https://sistema-estoque-xqv7.onrender.com',
-    process.env.APP_URL
-].filter(Boolean);
-
+// CORS - permitir mesma origem e origens configuradas
 app.use(cors({
     origin: function (origin, callback) {
-        // Permitir requisições sem origin (como mobile apps ou Postman)
+        // Permitir requisições sem origin (mesma origem, mobile apps, Postman)
         if (!origin) return callback(null, true);
 
-        if (allowedOrigins.indexOf(origin) !== -1) {
-            callback(null, true);
-        } else {
-            callback(new Error('Bloqueado pelo CORS'));
-        }
+        // Permitir qualquer subdomínio do Render
+        if (origin.includes('onrender.com')) return callback(null, true);
+
+        // Permitir localhost para desenvolvimento
+        if (origin.includes('localhost')) return callback(null, true);
+
+        // Permitir APP_URL configurada
+        if (process.env.APP_URL && origin === process.env.APP_URL) return callback(null, true);
+
+        callback(null, true); // Permitir todas as origens por enquanto
     },
     credentials: true
 }));
