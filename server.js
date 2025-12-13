@@ -56,7 +56,7 @@ const Nivel = mongoose.model('Nivel', {
 // Modelo de Usuário (com e-mail)
 const Usuario = mongoose.model('Usuario', {
     usuario: { type: String, unique: true, required: true, trim: true, lowercase: true },
-    email: { type: String, unique: true, required: true, trim: true, lowercase: true },
+    email: { type: String, sparse: true, trim: true, lowercase: true },
     senha: { type: String, required: true },
     nome: { type: String, required: true, trim: true },
     nivelId: { type: String, required: true },
