@@ -6,12 +6,6 @@ Sistema completo de controle de estoque com autenticacao, controle de acessos e 
 
 O sistema esta disponivel em: **https://sistema-estoque-qg2u.onrender.com**
 
-### Credenciais Padrao
-- **Usuario:** admin
-- **Senha:** Admin@123
-
-> Recomendamos trocar a senha apos o primeiro acesso.
-
 ## Funcionalidades
 
 ### Gestao de Produtos
