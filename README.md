@@ -1,96 +1,152 @@
 # Sistema de Controle de Estoque
 
-Sistema simples de cadastro de produtos e controle de estoque com entradas e saídas, desenvolvido com Node.js, Express e JavaScript.
+Sistema completo de controle de estoque com autenticacao, controle de acessos e recuperacao de senha por e-mail.
+
+## Acesso Online
+
+O sistema esta disponivel em: **https://sistema-estoque-qg2u.onrender.com**
+
+### Credenciais Padrao
+- **Usuario:** admin
+- **Senha:** Admin@123
+
+> Recomendamos trocar a senha apos o primeiro acesso.
 
 ## Funcionalidades
 
-- **Cadastro de Produtos**: Adicionar, editar e excluir produtos
-- **Controle de Estoque**: Visualizar quantidade disponível de cada produto
-- **Movimentações**: Registrar entradas e saídas de produtos
-- **Histórico**: Visualizar histórico completo de movimentações
-- **Interface Responsiva**: Design moderno e adaptável a diferentes dispositivos
+### Gestao de Produtos
+- Cadastro, edicao e exclusao de produtos
+- Codigo de barras e data de validade
+- Alerta de estoque minimo
+- Visualizacao de estoque em tempo real
+
+### Movimentacoes
+- Registro de entradas e saidas
+- Historico completo com filtro por periodo
+- Rastreamento por usuario
+
+### Controle de Acessos
+- Sistema de login com autenticacao segura
+- Niveis de acesso personalizaveis (Administrador, Usuario, etc.)
+- Permissoes granulares por funcionalidade
+- Bloqueio automatico apos tentativas de login falhas
+
+### Recuperacao de Senha
+- Recuperacao via e-mail
+- Link seguro com expiracao de 1 hora
+
+### Seguranca
+- Senhas criptografadas com bcrypt
+- Rate limiting para prevenir ataques
+- Headers de seguranca com Helmet
+- Sessoes persistentes no MongoDB
 
 ## Tecnologias Utilizadas
 
-- **Backend**: Node.js + Express
-- **Frontend**: HTML5, CSS3, JavaScript
-- **Armazenamento**: Arquivos JSON (sem necessidade de banco de dados)
+- **Backend:** Node.js + Express
+- **Banco de Dados:** MongoDB Atlas
+- **Sessoes:** express-session + connect-mongo
+- **Seguranca:** Helmet, bcryptjs, express-rate-limit
+- **E-mail:** Resend API
+- **Frontend:** HTML5, CSS3, JavaScript
+- **Hospedagem:** Render
 
-## Como Executar
+## Variaveis de Ambiente
 
-1. Certifique-se de ter o Node.js instalado (versão 14 ou superior)
+Para executar o projeto, configure as seguintes variaveis:
 
-2. No terminal, navegue até a pasta do projeto:
+```env
+MONGO_URI=sua_string_de_conexao_mongodb
+SESSION_SECRET=sua_chave_secreta_para_sessoes
+RESEND_API_KEY=sua_api_key_do_resend
+APP_URL=https://seu-dominio.com
+NODE_ENV=production
+```
+
+## Executar Localmente
+
+1. Clone o repositorio:
    ```bash
-   cd Estoque
+   git clone https://github.com/viteeeera/sistema-estoque.git
+   cd sistema-estoque
    ```
 
-3. Instale as dependências (se ainda não instalou):
+2. Instale as dependencias:
    ```bash
    npm install
    ```
+
+3. Configure as variaveis de ambiente (crie um arquivo `.env`)
 
 4. Inicie o servidor:
    ```bash
    npm start
    ```
 
-5. Abra seu navegador e acesse:
-   ```
-   http://localhost:3000
-   ```
+5. Acesse: `http://localhost:3000`
 
 ## Estrutura do Projeto
 
 ```
 Estoque/
-├── server.js              # Servidor Express e API REST
-├── package.json           # Configurações e dependências
-├── data/                  # Arquivos de dados (criado automaticamente)
-│   ├── produtos.json      # Dados dos produtos
-│   └── movimentacoes.json # Histórico de movimentações
+├── server.js              # Servidor Express, API REST e modelos MongoDB
+├── package.json           # Configuracoes e dependencias
 └── public/                # Arquivos do frontend
-    ├── index.html         # Página principal
-    ├── style.css          # Estilos
-    └── script.js          # Lógica do frontend
+    ├── index.html         # Pagina principal (sistema)
+    ├── login.html         # Pagina de login
+    ├── esqueci-senha.html # Solicitar recuperacao de senha
+    ├── redefinir-senha.html # Redefinir senha
+    ├── style.css          # Estilos do sistema
+    ├── login.css          # Estilos das paginas de autenticacao
+    ├── script.js          # Logica do sistema principal
+    └── login.js           # Logica de autenticacao
 ```
-
-## Uso do Sistema
-
-### Cadastrar Produto
-1. Acesse a aba "Produtos"
-2. Preencha o formulário com nome, descrição, preço e quantidade inicial
-3. Clique em "Salvar Produto"
-
-### Editar Produto
-1. Na lista de produtos, clique em "Editar"
-2. Modifique os campos desejados
-3. Clique em "Salvar Produto"
-
-### Registrar Movimentação
-1. Acesse a aba "Movimentações"
-2. Selecione o produto
-3. Escolha o tipo (Entrada ou Saída)
-4. Informe a quantidade
-5. Adicione uma observação (opcional)
-6. Clique em "Registrar Movimentação"
 
 ## API Endpoints
 
-### Produtos
-- `GET /api/produtos` - Listar todos os produtos
-- `GET /api/produtos/:id` - Buscar produto por ID
-- `POST /api/produtos` - Criar novo produto
+### Autenticacao
+- `POST /api/login` - Login
+- `POST /api/logout` - Logout
+- `GET /api/sessao` - Verificar sessao
+- `POST /api/esqueci-senha` - Solicitar recuperacao
+- `POST /api/redefinir-senha` - Redefinir senha
+
+### Usuarios (requer permissao)
+- `GET /api/usuarios` - Listar usuarios
+- `POST /api/usuarios` - Criar usuario
+- `PUT /api/usuarios/:id` - Atualizar usuario
+- `DELETE /api/usuarios/:id` - Deletar usuario
+- `POST /api/usuarios/:id/desbloquear` - Desbloquear usuario
+
+### Niveis de Acesso (requer permissao)
+- `GET /api/niveis` - Listar niveis
+- `POST /api/niveis` - Criar nivel
+- `PUT /api/niveis/:id` - Atualizar nivel
+- `DELETE /api/niveis/:id` - Deletar nivel
+
+### Produtos (requer autenticacao)
+- `GET /api/produtos` - Listar produtos
+- `GET /api/produtos/:id` - Buscar produto
+- `POST /api/produtos` - Criar produto
 - `PUT /api/produtos/:id` - Atualizar produto
 - `DELETE /api/produtos/:id` - Deletar produto
 
-### Movimentações
-- `GET /api/movimentacoes` - Listar todas as movimentações
-- `POST /api/movimentacoes` - Criar nova movimentação
+### Movimentacoes (requer autenticacao)
+- `GET /api/movimentacoes` - Listar movimentacoes
+- `POST /api/movimentacoes` - Registrar movimentacao
 
-## Observações
+## Permissoes Disponiveis
 
-- Os dados são salvos automaticamente em arquivos JSON na pasta `data/`
-- Produtos com estoque abaixo de 10 unidades aparecem em vermelho
-- O sistema valida se há quantidade suficiente antes de registrar saídas
-- Todas as movimentações são registradas com data e hora
+| Permissao | Descricao |
+|-----------|-----------|
+| gerenciar_acessos | Criar, editar e deletar usuarios |
+| gerenciar_niveis | Criar, editar e deletar niveis de acesso |
+| cadastrar_produtos | Cadastrar novos produtos |
+| editar_produtos | Editar produtos existentes |
+| deletar_produtos | Deletar produtos |
+| registrar_movimentacoes | Registrar entradas e saidas |
+| visualizar_historico | Ver historico de movimentacoes |
+
+## Licenca
+
+Este projeto foi desenvolvido para fins educacionais e de uso interno.
