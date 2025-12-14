@@ -95,6 +95,12 @@ input:focus {
     padding-right: 45px;
 }
 
+/* Esconder icone nativo do navegador para revelar senha */
+.input-senha-container input::-ms-reveal,
+.input-senha-container input::-ms-clear {
+    display: none;
+}
+
 .btn-ver-senha {
     position: absolute;
     right: 8px;
