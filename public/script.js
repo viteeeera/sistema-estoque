@@ -2,6 +2,18 @@ const API_URL = '/api';
 
 let permissoesUsuario = {};
 
+// Função para mostrar/ocultar senha
+function toggleSenha(inputId, btn) {
+    const input = document.getElementById(inputId);
+    if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = '🙈';
+    } else {
+        input.type = 'password';
+        btn.textContent = '👁';
+    }
+}
+
 // Verificar autenticação ao carregar a página
 async function verificarSessao() {
     try {

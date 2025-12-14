@@ -85,6 +85,32 @@ input:focus {
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
+.input-senha-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-senha-container input {
+    padding-right: 45px;
+}
+
+.btn-ver-senha {
+    position: absolute;
+    right: 8px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 5px;
+    opacity: 0.6;
+    transition: opacity 0.3s;
+}
+
+.btn-ver-senha:hover {
+    opacity: 1;
+}
+
 .mensagem-erro {
     background: #fee;
     color: #c33;
